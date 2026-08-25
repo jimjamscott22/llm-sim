@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive 3D LLM & Transformer Visualizer Suite</title>
+  
+  <!-- Import maps polyfill & Three.js ES Modules -->
+  <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg-dark: #060913;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(56, 189, 248, 0.25);
+      --accent-blue: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-amber: #f59e0b;
+      --accent-emerald: #10b981;
+      --text-light: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-light);
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* UI Glassmorphism Overlay */
+    .overlay {
+      position: absolute;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Header Bar */
+    header {
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 9999px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      padding-right: 12px;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .version-nav {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .version-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 7px 13px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .version-btn:hover {
+      color: var(--text-light);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .version-btn.active {
+      color: #0f172a;
+      background: linear-gradient(135deg, var(--accent-blue), #7dd3fc);
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Control Panel Bottom Left */
+    .controls-panel {
+      bottom: 24px;
+      left: 24px;
+      width: 360px;
+      padding: 20px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input[type="text"], select {
+      width: 100%;
+      padding: 9px 12px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      color: var(--text-light);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus, select:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--panel-border);
+      color: var(--accent-blue);
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .action-btn.paused {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: var(--accent-amber);
+    }
+
+    .speed-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent-blue);
+      cursor: pointer;
+    }
+
+    /* Status Banner Top Left */
+    .status-banner {
+      top: 24px;
+      left: 24px;
+      max-width: 420px;
+      padding: 14px 18px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-light);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .status-badge {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      margin-right: 8px;
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    /* Output Stream Bottom Right */
+    .output-stream {
+      bottom: 24px;
+      right: 24px;
+      width: 320px;
+      padding: 16px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--accent-emerald);
+    }
+
+    .output-title {
+      font-family: system-ui;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Canvas Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Header Version Switcher -->
+  <header class="overlay interactive">
+    <div class="title">LLM 3D Visualizer</div>
+    <nav class="version-nav">
+      <button class="version-btn active" data-version="transformer">v2: 3D Transformer Pipeline</button>
+      <button class="version-btn" data-version="embeddings">v3: RAG & Vector Space</button>
+      <button class="version-btn" data-version="moe">v4: Mixture of Experts (MoE)</button>
+      <button class="version-btn" data-version="kvcache">v5: KV Cache Memory</button>
+      <button class="version-btn" data-version="lmstudio">v1: LM Studio Core</button>
+    </nav>
+  </header>
+
+  <!-- Status Banner -->
+  <div class="status-banner overlay">
+    <span class="status-badge"></span>
+    <span id="status-text">Initializing 3D Simulation...</span>
+  </div>
+
+  <!-- Interactive Control Panel -->
+  <div class="controls-panel overlay interactive">
+    <form id="prompt-form" class="panel-row">
+      <label id="prompt-label" for="prompt-input">LLM Prompt Input:</label>
+      <input type="text" id="prompt-input" value="Deep learning models transform intelligence" autocomplete="off" />
+    </form>
+
+    <div class="panel-row">
+      <label for="preset-select">Preset Prompt Templates:</label>
+      <select id="preset-select">
+        <option value="">-- Choose a preset template --</option>
+        <option value="Deep learning models transform intelligence">Deep learning models transform intelligence</option>
+        <option value="Attention mechanism connects contextual tokens">Attention mechanism connects contextual tokens</option>
+        <option value="Retrieval Augmented Generation with Vector Database">Retrieval Augmented Generation with Vector Database</option>
+        <option value="Solve math equation and write python code">Solve math equation and write python code</option>
+        <option value="Key Value Cache accelerates transformer inference">Key Value Cache accelerates transformer inference</option>
+      </select>
+    </div>
+
+    <div class="panel-row">
+      <label>Simulation Speed</label>
+      <div class="speed-container">
+        <input type="range" id="speed-slider" min="0.2" max="3" step="0.1" value="1.0" />
+        <span id="speed-val" style="font-size: 12px; font-weight: 600; min-width: 32px;">1.0x</span>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button id="play-pause-btn" class="action-btn">
+        <span>⏸</span> Pause
+      </button>
+    </div>
+  </div>
+
+  <!-- Live Token Stream Box -->
+  <div class="output-stream overlay">
+    <div class="output-title">Live Generation Stream</div>
+    <div id="generated-stream">Deep learning models transform intelligence...</div>
+  </div>
+
+  <!-- Main JavaScript Controller Entry -->
+  <script type="module" src="./main.js"></script>
+
+</body>
+</html>

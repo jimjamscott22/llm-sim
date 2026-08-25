@@ -1,0 +1,34 @@
+{
+  "name": "llm-3d-visualizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive 3D Large Language Model & Transformer Architecture Visualizer Suite in Three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite --open",
+    "serve:static": "npx serve ."
+  },
+  "keywords": [
+    "threejs",
+    "llm",
+    "transformer",
+    "webgl",
+    "rag",
+    "vector-database",
+    "mixture-of-experts",
+    "kv-cache",
+    "visualization",
+    "deep-learning"
+  ],
+  "author": "Jamie",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.161.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
